@@ -1,0 +1,18 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:layout_gravity="start"
+    android:padding="8dp">
+
+    <TextView
+        android:id="@+id/tvMessageReceived"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="@drawable/received_message_bg"
+        android:textColor="#EEEEEE"
+        android:layout_marginEnd="50dp"
+        android:textSize="18sp"
+        android:padding="10dp"
+        android:text="Hi there!" />
+</LinearLayout>

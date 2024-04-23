@@ -1,0 +1,55 @@
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp"
+    android:background="#263238">
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_above="@id/messageInputLayout"
+        android:background="@drawable/chat_bg" />
+
+    <RelativeLayout
+        android:id="@+id/messageInputLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:background="#263238">
+
+        <EditText
+            android:id="@+id/messageInput"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_toStartOf="@id/sendButton"
+            android:layout_alignParentStart="true"
+            android:layout_alignParentEnd="false"
+            android:hint="@string/input_hint"
+            android:textColorHint="#B0BEC5"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp"
+            android:layout_marginTop="8dp"
+            android:paddingTop="10dp"
+            android:paddingBottom="10dp"
+            android:paddingLeft="16dp"
+        android:paddingRight="16dp"
+        android:inputType="textMultiLine|textCapSentences"
+        android:background="@drawable/input_bg" />
+
+
+        <Button
+            android:id="@+id/sendButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_alignParentEnd="true"
+            android:layout_marginTop="8dp"
+            android:layout_marginStart="4dp"
+            android:background="@drawable/button_bg"
+            android:text="➤"
+            android:textSize="24sp"
+            android:textColor="#DDDDDD"
+            android:gravity="center"/>
+
+    </RelativeLayout>
+</RelativeLayout>
