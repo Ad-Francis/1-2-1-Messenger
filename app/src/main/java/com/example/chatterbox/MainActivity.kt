@@ -1,23 +1,30 @@
 package com.example.chatterbox
 
+import android.annotation.SuppressLint
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.Context
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
-import androidx.appcompat.app.AppCompatActivity
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import android.widget.Button
 import android.widget.EditText
 import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import androidx.room.Room
 import com.example.chatterbox.adapters.MessageAdapter
-import androidx.lifecycle.Observer
 import com.example.chatterbox.database.AppDatabase
 import com.example.chatterbox.database.Message
 import com.example.chatterbox.viewmodel.ChatViewModel
 import com.example.chatterbox.viewmodel.ViewModelFactory
-import kotlinx.coroutines.*
 import io.ably.lib.realtime.AblyRealtime
+import kotlinx.coroutines.*
 
 class MainActivity : AppCompatActivity() {
     private lateinit var messageInput: EditText
@@ -27,15 +34,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var ablyRealtime: AblyRealtime
     private val scope = CoroutineScope(Dispatchers.Main)
 
-    // Lazy initialization of the Room database
+    private val CHANNEL_ID = "chat_messages_channel"
+
     private val db by lazy {
-        Room.databaseBuilder(
-            applicationContext,
-            AppDatabase::class.java, "database-name"
-        ).fallbackToDestructiveMigration().build()
+        Room.databaseBuilder(applicationContext, AppDatabase::class.java, "database-name").fallbackToDestructiveMigration().build()
     }
 
-    // Lazy initialization of the ViewModel
     private val viewModel by lazy {
         ViewModelProvider(this, ViewModelFactory(db.messageDao())).get(ChatViewModel::class.java)
     }
@@ -44,23 +48,26 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // Initialize RecyclerView and its adapter
+        createNotificationChannel()
+        setupViews()
+        setupObservers()
+        initializeChat()
+    }
+
+    private fun setupViews() {
         recyclerView = findViewById(R.id.recyclerView)
         recyclerView.layoutManager = LinearLayoutManager(this)
         messageAdapter = MessageAdapter(mutableListOf())
         recyclerView.adapter = messageAdapter
-
-        // Initialize inputs and buttons
-        messageInput = findViewById(R.id.messageInput)  // Make sure this is before initializeChat()
+        messageInput = findViewById(R.id.messageInput)
         sendButton = findViewById(R.id.sendButton)
+    }
 
-        // Ensure database and ViewModel are set up
+    private fun setupObservers() {
         viewModel.allMessages.observe(this, Observer { messages ->
             messageAdapter.updateMessages(messages)
             recyclerView.scrollToPosition(messages.size - 1)
         })
-
-        initializeChat()
     }
 
     private fun initializeChat() {
@@ -72,6 +79,7 @@ class MainActivity : AppCompatActivity() {
             val newMessage = Message(text = message.data.toString(), isSent = false)
             CoroutineScope(Dispatchers.IO).launch {
                 viewModel.addMessage(newMessage)
+                sendNotification(newMessage)
             }
         }
 
@@ -79,21 +87,41 @@ class MainActivity : AppCompatActivity() {
             val messageText = messageInput.text.toString()
             if (messageText.isNotBlank()) {
                 CoroutineScope(Dispatchers.IO).launch {
-                    try {
-                        pubChannel.publish("default", messageText)
-                        val sentMessage = Message(text = messageText, isSent = true)
-                        viewModel.addMessage(sentMessage)
-                        withContext(Dispatchers.Main) {
-                            messageInput.text.clear()
-                        }
-                    } catch (e: Exception) {
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(applicationContext, "Failed to send message: ${e.message}", Toast.LENGTH_LONG).show()
-                        }
-                        Log.e("MainActivity", "Error sending message", e)
+                    pubChannel.publish("default", messageText)
+                    val sentMessage = Message(text = messageText, isSent = true)
+                    viewModel.addMessage(sentMessage)
+                    withContext(Dispatchers.Main) {
+                        messageInput.text.clear()
                     }
                 }
             }
+        }
+    }
+
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val name = getString(R.string.channel_name)
+            val descriptionText = getString(R.string.channel_description)
+            val importance = NotificationManager.IMPORTANCE_DEFAULT
+            val channel = NotificationChannel(CHANNEL_ID, name, importance).apply {
+                description = descriptionText
+            }
+            val notificationManager: NotificationManager =
+                getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.createNotificationChannel(channel)
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun sendNotification(message: Message) {
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_message)
+            .setContentTitle("New Message")
+            .setContentText(message.text)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+
+        with(NotificationManagerCompat.from(this)) {
+            notify(System.currentTimeMillis().toInt(), builder.build())
         }
     }
 

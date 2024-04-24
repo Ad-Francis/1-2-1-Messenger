@@ -3,6 +3,8 @@
     <string name="send_button">Send Message</string>
     <string name="input_hint">Message</string>
     <string name="api_key">sky1Uw.rET-ow:R8zRXPsAH6FOZNDwfMJiWL-iwDzhqkDVqN1WNOl3QUg</string>
-    <string name="pub_channel_name">hubby</string>
-    <string name="sub_channel_name">pitou</string>
+    <string name="pub_channel_name">pitou</string>
+    <string name="sub_channel_name">hubby</string>
+    <string name="channel_name">New Message Alert</string>
+    <string name="channel_description">Get notified when you receive new messages</string>
 </resources>
