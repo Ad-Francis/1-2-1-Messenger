@@ -7,6 +7,7 @@ import android.content.Context
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.view.WindowManager
 import android.widget.Button
 import android.widget.EditText
 import android.widget.Toast
@@ -52,6 +53,9 @@ class MainActivity : AppCompatActivity() {
         setupViews()
         setupObservers()
         initializeChat()
+
+        // Prevent the keyboard from automatically opening
+        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN)
     }
 
     private fun setupViews() {
@@ -61,6 +65,9 @@ class MainActivity : AppCompatActivity() {
         recyclerView.adapter = messageAdapter
         messageInput = findViewById(R.id.messageInput)
         sendButton = findViewById(R.id.sendButton)
+
+        // Ensure no initial focus
+        recyclerView.requestFocus()
     }
 
     private fun setupObservers() {
@@ -115,7 +122,7 @@ class MainActivity : AppCompatActivity() {
     @SuppressLint("MissingPermission")
     private fun sendNotification(message: Message) {
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_message)
+            .setSmallIcon(R.mipmap.ic_message)
             .setContentTitle("New Message")
             .setContentText(message.text)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
