@@ -1,13 +1,21 @@
 package com.example.chatterbox
 
 import android.os.Bundle
+import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import android.widget.Button
 import android.widget.EditText
+import android.widget.Toast
+import androidx.lifecycle.ViewModelProvider
+import androidx.room.Room
 import com.example.chatterbox.adapters.MessageAdapter
-import com.example.chatterbox.models.Message
+import androidx.lifecycle.Observer
+import com.example.chatterbox.database.AppDatabase
+import com.example.chatterbox.database.Message
+import com.example.chatterbox.viewmodel.ChatViewModel
+import com.example.chatterbox.viewmodel.ViewModelFactory
 import kotlinx.coroutines.*
 import io.ably.lib.realtime.AblyRealtime
 
@@ -18,55 +26,71 @@ class MainActivity : AppCompatActivity() {
     private lateinit var messageAdapter: MessageAdapter
     private lateinit var ablyRealtime: AblyRealtime
     private val scope = CoroutineScope(Dispatchers.Main)
-    private val messages = mutableListOf<Message>()
+
+    // Lazy initialization of the Room database
+    private val db by lazy {
+        Room.databaseBuilder(
+            applicationContext,
+            AppDatabase::class.java, "database-name"
+        ).fallbackToDestructiveMigration().build()
+    }
+
+    // Lazy initialization of the ViewModel
+    private val viewModel by lazy {
+        ViewModelProvider(this, ViewModelFactory(db.messageDao())).get(ChatViewModel::class.java)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        messageInput = findViewById(R.id.messageInput)
-        sendButton = findViewById(R.id.sendButton)
-        recyclerView = findViewById(R.id.recyclerView)
 
+        // Initialize RecyclerView and its adapter
+        recyclerView = findViewById(R.id.recyclerView)
         recyclerView.layoutManager = LinearLayoutManager(this)
-        messageAdapter = MessageAdapter(messages)
+        messageAdapter = MessageAdapter(mutableListOf())
         recyclerView.adapter = messageAdapter
+
+        // Initialize inputs and buttons
+        messageInput = findViewById(R.id.messageInput)  // Make sure this is before initializeChat()
+        sendButton = findViewById(R.id.sendButton)
+
+        // Ensure database and ViewModel are set up
+        viewModel.allMessages.observe(this, Observer { messages ->
+            messageAdapter.updateMessages(messages)
+            recyclerView.scrollToPosition(messages.size - 1)
+        })
 
         initializeChat()
     }
 
     private fun initializeChat() {
-        // Assuming you have already initialized AblyRealtime instance elsewhere in your setup
-        val apiKey = getString(R.string.api_key) // Make sure this is defined in your strings.xml
-        ablyRealtime = AblyRealtime(apiKey)
+        ablyRealtime = AblyRealtime(getString(R.string.api_key))
+        val pubChannel = ablyRealtime.channels.get(getString(R.string.pub_channel_name))
+        val subChannel = ablyRealtime.channels.get(getString(R.string.sub_channel_name))
 
-        val pubChannelName = getString(R.string.pub_channel_name) // These should be in your strings.xml
-        val subChannelName = getString(R.string.sub_channel_name)
-
-        val pubChannel = ablyRealtime.channels.get(pubChannelName)
-        val subChannel = ablyRealtime.channels.get(subChannelName)
-
-        // Subscribe to receive messages
         subChannel.subscribe("default") { message ->
-            val newMessage = Message(message.data.toString(), false) // false indicates a received message
-            runOnUiThread {
-                messages.add(newMessage) // Add message to the list
-                messageAdapter.notifyItemInserted(messages.size - 1) // Notify the adapter to refresh the view
-                recyclerView.scrollToPosition(messages.size - 1) // Scroll to the bottom to show new message
+            val newMessage = Message(text = message.data.toString(), isSent = false)
+            CoroutineScope(Dispatchers.IO).launch {
+                viewModel.addMessage(newMessage)
             }
         }
 
-        // Send messages when the button is clicked
         sendButton.setOnClickListener {
             val messageText = messageInput.text.toString()
             if (messageText.isNotBlank()) {
-                scope.launch {
-                    pubChannel.publish("default", messageText) // Publish message
-                    runOnUiThread {
-                        val sentMessage = Message(messageText, true) // true indicates a sent message
-                        messages.add(sentMessage)
-                        messageAdapter.notifyItemInserted(messages.size - 1)
-                        recyclerView.scrollToPosition(messages.size - 1)
-                        messageInput.text.clear() // Clear the input field after sending
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        pubChannel.publish("default", messageText)
+                        val sentMessage = Message(text = messageText, isSent = true)
+                        viewModel.addMessage(sentMessage)
+                        withContext(Dispatchers.Main) {
+                            messageInput.text.clear()
+                        }
+                    } catch (e: Exception) {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(applicationContext, "Failed to send message: ${e.message}", Toast.LENGTH_LONG).show()
+                        }
+                        Log.e("MainActivity", "Error sending message", e)
                     }
                 }
             }

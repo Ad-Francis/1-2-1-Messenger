@@ -5,10 +5,16 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
-import com.example.chatterbox.models.Message
+import com.example.chatterbox.database.Message
 import com.example.chatterbox.R
 
-class MessageAdapter(private val messages: List<Message>) : RecyclerView.Adapter<MessageAdapter.MessageViewHolder>() {
+class MessageAdapter(private var messages: MutableList<Message>) : RecyclerView.Adapter<MessageAdapter.MessageViewHolder>() {
+
+    fun updateMessages(newMessages: List<Message>) {
+        messages.clear()
+        messages.addAll(newMessages)
+        notifyDataSetChanged()
+    }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MessageViewHolder {
         val layoutId = if (viewType == VIEW_TYPE_MESSAGE_SENT) R.layout.item_message_sent else R.layout.item_message_received
@@ -17,8 +23,7 @@ class MessageAdapter(private val messages: List<Message>) : RecyclerView.Adapter
     }
 
     override fun onBindViewHolder(holder: MessageViewHolder, position: Int) {
-        val message = messages[position]
-        holder.bind(message)
+        holder.bind(messages[position])
     }
 
     override fun getItemViewType(position: Int): Int {
