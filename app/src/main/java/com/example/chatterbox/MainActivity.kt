@@ -6,6 +6,10 @@ import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
 import android.os.Bundle
+import io.ably.lib.realtime.AblyRealtime
+import io.ably.lib.realtime.ConnectionStateListener
+import io.ably.lib.types.ErrorInfo
+import io.ably.lib.realtime.CompletionListener
 import android.util.Log
 import android.view.WindowManager
 import android.widget.Button
@@ -24,7 +28,7 @@ import com.example.chatterbox.database.AppDatabase
 import com.example.chatterbox.database.Message
 import com.example.chatterbox.viewmodel.ChatViewModel
 import com.example.chatterbox.viewmodel.ViewModelFactory
-import io.ably.lib.realtime.AblyRealtime
+import io.ably.lib.realtime.ConnectionState
 import kotlinx.coroutines.*
 
 class MainActivity : AppCompatActivity() {
@@ -54,7 +58,6 @@ class MainActivity : AppCompatActivity() {
         setupObservers()
         initializeChat()
 
-        // Prevent the keyboard from automatically opening
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN)
     }
 
@@ -66,7 +69,6 @@ class MainActivity : AppCompatActivity() {
         messageInput = findViewById(R.id.messageInput)
         sendButton = findViewById(R.id.sendButton)
 
-        // Ensure no initial focus
         recyclerView.requestFocus()
     }
 
@@ -77,8 +79,35 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
+    private fun reconnectAbly() {
+        // Check if still disconnected before trying to reconnect
+        if (ablyRealtime.connection.state == ConnectionState.disconnected ||
+            ablyRealtime.connection.state == ConnectionState.suspended) {
+            ablyRealtime.connect() // This method might vary based on SDK specifics
+        }
+    }
+
     private fun initializeChat() {
         ablyRealtime = AblyRealtime(getString(R.string.api_key))
+
+        ablyRealtime.connection.on(ConnectionStateListener { stateChange ->
+            Log.d("AblyConnection", "Connection state changed: ${stateChange.current.name}")
+            when(stateChange.current) {
+                ConnectionState.connected -> {
+                    // Connection established
+                }
+                ConnectionState.disconnected, ConnectionState.suspended -> {
+                    Toast.makeText(this, "Connection lost, attempting to reconnect...", Toast.LENGTH_SHORT).show()
+                    // Attempt to reconnect
+                    reconnectAbly()
+                }
+                ConnectionState.failed -> {
+                    Toast.makeText(this, "Connection failed, check network or API key", Toast.LENGTH_LONG).show()
+                }
+                else -> {}
+            }
+        })
+
         val pubChannel = ablyRealtime.channels.get(getString(R.string.pub_channel_name))
         val subChannel = ablyRealtime.channels.get(getString(R.string.sub_channel_name))
 
@@ -93,14 +122,24 @@ class MainActivity : AppCompatActivity() {
         sendButton.setOnClickListener {
             val messageText = messageInput.text.toString()
             if (messageText.isNotBlank()) {
-                CoroutineScope(Dispatchers.IO).launch {
-                    pubChannel.publish("default", messageText)
-                    val sentMessage = Message(text = messageText, isSent = true)
-                    viewModel.addMessage(sentMessage)
-                    withContext(Dispatchers.Main) {
-                        messageInput.text.clear()
+                // Execute the publish operation
+                pubChannel.publish("default", messageText, object : CompletionListener {
+                    override fun onSuccess() {
+                        runOnUiThread {
+                            val sentMessage = Message(text = messageText, isSent = true)
+                            viewModel.addMessage(sentMessage)
+                            messageInput.text.clear()
+                            Toast.makeText(applicationContext, "Message sent successfully", Toast.LENGTH_SHORT).show()
+                        }
                     }
-                }
+
+                    override fun onError(errorInfo: ErrorInfo?) {
+                        runOnUiThread {
+                            Log.e("AblyPublish", "Error publishing message: ${errorInfo?.message}")
+                            Toast.makeText(applicationContext, "Failed to send message: ${errorInfo?.message}", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                })
             }
         }
     }

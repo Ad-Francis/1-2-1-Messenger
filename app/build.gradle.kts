@@ -9,7 +9,7 @@ android {
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.example.chatterbox"
+        applicationId = "com.example"
         minSdk = 24
         targetSdk = 34
         versionCode = 1
@@ -59,10 +59,13 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
+    implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.kotlinx.coroutines.android)
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
-    implementation(libs.androidx.room.runtime)  // Ensure this is correct for Room runtime
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.play.services.drive)  // Ensure this is correct for Room runtime
     kapt(libs.androidx.room.compiler)           // Ensure this is correct for Room compiler
     implementation(libs.androidx.room.ktx)      // Kotlin Extensions for Room
 
