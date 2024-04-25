@@ -20,3 +20,5 @@ Thumbs.db
 
 # Optionally exclude other build artifacts
 *.aab
+ release/baselineProfiles/0/app-release.dm
+  release/baselineProfiles/1/app-release.dm

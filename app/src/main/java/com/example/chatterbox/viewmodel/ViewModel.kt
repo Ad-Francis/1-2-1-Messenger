@@ -23,4 +23,14 @@ class ChatViewModel(private val messageDao: MessageDao) : ViewModel() {
             }
         }
     }
+
+    fun updateMessage(message: Message) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                messageDao.updateMessage(message)
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "Error updating message", e)
+            }
+        }
+    }
 }

@@ -7,5 +7,6 @@ import androidx.room.PrimaryKey
 data class Message(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val text: String,
-    val isSent: Boolean // true for sent, false for received
+    var isSent: Boolean,
+    var status: String
 )

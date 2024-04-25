@@ -112,7 +112,7 @@ class MainActivity : AppCompatActivity() {
         val subChannel = ablyRealtime.channels.get(getString(R.string.sub_channel_name))
 
         subChannel.subscribe("default") { message ->
-            val newMessage = Message(text = message.data.toString(), isSent = false)
+            val newMessage = Message(text = message.data.toString(), isSent = false, status = "received")
             CoroutineScope(Dispatchers.IO).launch {
                 viewModel.addMessage(newMessage)
                 sendNotification(newMessage)
@@ -122,20 +122,25 @@ class MainActivity : AppCompatActivity() {
         sendButton.setOnClickListener {
             val messageText = messageInput.text.toString()
             if (messageText.isNotBlank()) {
-                // Execute the publish operation
+                val newMessage = Message(text = messageText, isSent = false, status = "pending")
+                viewModel.addMessage(newMessage)
+                messageInput.text.clear()
+                Toast.makeText(applicationContext, "Message pending...", Toast.LENGTH_SHORT).show()
+
                 pubChannel.publish("default", messageText, object : CompletionListener {
                     override fun onSuccess() {
                         runOnUiThread {
-                            val sentMessage = Message(text = messageText, isSent = true)
-                            viewModel.addMessage(sentMessage)
-                            messageInput.text.clear()
+                            newMessage.isSent = true
+                            newMessage.status = "sent"
+                            viewModel.updateMessage(newMessage)
                             Toast.makeText(applicationContext, "Message sent successfully", Toast.LENGTH_SHORT).show()
                         }
                     }
 
                     override fun onError(errorInfo: ErrorInfo?) {
                         runOnUiThread {
-                            Log.e("AblyPublish", "Error publishing message: ${errorInfo?.message}")
+                            newMessage.status = "failed"
+                            viewModel.updateMessage(newMessage)
                             Toast.makeText(applicationContext, "Failed to send message: ${errorInfo?.message}", Toast.LENGTH_SHORT).show()
                         }
                     }
